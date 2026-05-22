@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ action }} Competition - YouJudge{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb" style="font-size:0.85rem;">
+        <li class="breadcrumb-item"><a href="{% url 'competitions:dashboard' %}" style="color:#084B83;">Dashboard</a></li>
+        {% if competition %}
+            <li class="breadcrumb-item"><a href="{% url 'competitions:detail' competition.pk %}" style="color:#084B83;">{{ competition.title }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ action }} Competition</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-lg-8 offset-lg-2">
+        <div class="card p-4">
+            <h3 class="fw-bold mb-4">{{ action }} Competition</h3>
+            {% crispy form %}
+            <a href="{% if competition %}{% url 'competitions:detail' competition.pk %}{% else %}{% url 'competitions:dashboard' %}{% endif %}" class="btn btn-outline-secondary mt-2">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+/* ── hue slider track ── */
+#icon-hue-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 14px;
+    border-radius: 7px;
+    background: linear-gradient(to right,
+        hsl(0,75%,52%), hsl(30,75%,52%), hsl(60,75%,52%), hsl(90,75%,52%),
+        hsl(120,75%,52%), hsl(150,75%,52%), hsl(180,75%,52%), hsl(210,75%,52%),
+        hsl(240,75%,52%), hsl(270,75%,52%), hsl(300,75%,52%), hsl(330,75%,52%),
+        hsl(360,75%,52%));
+    outline: none;
+    cursor: pointer;
+    border: none;
+}
+#icon-hue-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid rgba(0,0,0,0.25);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+#icon-hue-slider::-moz-range-thumb {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid rgba(0,0,0,0.25);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+/* ── pop-out panel ── */
+#icon-popout {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    padding: 18px;
+    width: 300px;
+    animation: popIn 0.15s ease;
+}
+@keyframes popIn {
+    from { opacity:0; transform:scale(0.93) translateY(-6px); }
+    to   { opacity:1; transform:scale(1)    translateY(0);    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const iconSelect = document.getElementById('id_icon');
+    const colorInput = document.getElementById('id_color');
+    if (!iconSelect || !colorInput) return;
+
+    const ICONS = [
+        { value: 'trophy-fill',       label: 'Trophy'     },
+        { value: 'star-fill',         label: 'Star'       },
+        { value: 'lightning-fill',    label: 'Lightning'  },
+        { value: 'award-fill',        label: 'Award'      },
+        { value: 'flag-fill',         label: 'Flag'       },
+        { value: 'rocket-fill',       label: 'Rocket'     },
+        { value: 'crown-fill',        label: 'Crown'      },
+        { value: 'shield-fill',       label: 'Shield'     },
+        { value: 'globe',             label: 'Globe'      },
+        { value: 'book-fill',         label: 'Book'       },
+        { value: 'palette-fill',      label: 'Art'        },
+        { value: 'cpu-fill',          label: 'Technology' },
+        { value: 'fire',              label: 'Fire'       },
+        { value: 'gem',               label: 'Gem'        },
+        { value: 'heart-fill',        label: 'Heart'      },
+        { value: 'music-note-beamed', label: 'Music'      },
+    ];
+
+    /* ── colour helpers ── */
+    function hexToHue(hex) {
+        // parse hex → hue (0-360)
+        const r = parseInt(hex.slice(1,3),16)/255;
+        const g = parseInt(hex.slice(3,5),16)/255;
+        const b = parseInt(hex.slice(5,7),16)/255;
+        const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+        if (d === 0) return 215; // default navy-ish hue
+        let h;
+        if      (max===r) h = ((g-b)/d + (g<b?6:0)) / 6;
+        else if (max===g) h = ((b-r)/d + 2) / 6;
+        else              h = ((r-g)/d + 4) / 6;
+        return Math.round(h * 360);
+    }
+
+    function hueToHex(h) {
+        // hsl(h, 75%, 52%) → hex
+        const s=0.75, l=0.52;
+        const c = (1 - Math.abs(2*l-1)) * s;
+        const x = c * (1 - Math.abs((h/60)%2 - 1));
+        const m = l - c/2;
+        let r,g,b;
+        if      (h< 60) [r,g,b]=[c,x,0];
+        else if (h<120) [r,g,b]=[x,c,0];
+        else if (h<180) [r,g,b]=[0,c,x];
+        else if (h<240) [r,g,b]=[0,x,c];
+        else if (h<300) [r,g,b]=[x,0,c];
+        else            [r,g,b]=[c,0,x];
+        const toHex = n => Math.round((n+m)*255).toString(16).padStart(2,'0');
+        return '#'+toHex(r)+toHex(g)+toHex(b);
+    }
+
+    let selIcon  = iconSelect.value || 'trophy-fill';
+    let selColor = colorInput.value || '#084B83';
+    let selHue   = hexToHue(selColor);
+
+    /* ── trigger button (the clickable icon preview) ── */
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.id   = 'icon-trigger';
+    trigger.title = 'Click to change icon & colour';
+    trigger.style.cssText = 'width:72px;height:72px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2.4rem;cursor:pointer;transition:all 0.2s;border:none;margin-bottom:6px;';
+
+    const triggerLabel = document.createElement('div');
+    triggerLabel.style.cssText = 'font-size:0.72rem;color:#838E83;margin-bottom:16px;';
+    triggerLabel.textContent = 'Click to change';
+
+    function refreshTrigger() {
+        trigger.style.background = selColor + '22';
+        trigger.style.color      = selColor;
+        trigger.style.boxShadow  = '0 0 0 2px ' + selColor + '55';
+        trigger.innerHTML = '<i class="bi bi-' + selIcon + '"></i>';
+    }
+
+    /* ── pop-out panel ── */
+    const popout = document.createElement('div');
+    popout.id = 'icon-popout';
+
+    // section label helper
+    function label(txt) {
+        const d = document.createElement('div');
+        d.textContent = txt;
+        d.style.cssText = 'font-size:0.7rem;font-weight:700;color:#838E83;letter-spacing:0.08em;margin-bottom:8px;';
+        return d;
+    }
+
+    // ── icon grid inside popout ──
+    const iconGrid = document.createElement('div');
+    iconGrid.style.cssText = 'display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-bottom:16px;';
+
+    function refreshIconGrid() {
+        iconGrid.querySelectorAll('button').forEach(function (btn) {
+            const active = btn.dataset.value === selIcon;
+            btn.style.border     = active ? '2px solid ' + selColor : '2px solid #e5e7eb';
+            btn.style.background = active ? selColor + '22'         : '#f8f9fa';
+            btn.style.color      = active ? selColor                : '#9ca3af';
+            btn.style.transform  = active ? 'scale(1.15)'          : 'scale(1)';
+        });
+    }
+
+    ICONS.forEach(function (icon) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = icon.label;
+        btn.dataset.value = icon.value;
+        btn.style.cssText = 'width:100%;aspect-ratio:1;border-radius:10px;font-size:1.2rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;border:2px solid #e5e7eb;background:#f8f9fa;color:#9ca3af;';
+        btn.innerHTML = '<i class="bi bi-' + icon.value + '"></i>';
+        btn.addEventListener('click', function () {
+            selIcon = icon.value;
+            iconSelect.value = icon.value;
+            refreshIconGrid();
+            refreshTrigger();
+        });
+        iconGrid.appendChild(btn);
+    });
+
+    // ── hue slider inside popout ──
+    const sliderWrap = document.createElement('div');
+    sliderWrap.style.cssText = 'padding:4px 2px 2px;';
+
+    const hueSlider = document.createElement('input');
+    hueSlider.type = 'range';
+    hueSlider.id   = 'icon-hue-slider';
+    hueSlider.min  = '0';
+    hueSlider.max  = '360';
+    hueSlider.value = String(selHue);
+
+    hueSlider.addEventListener('input', function () {
+        selHue   = parseInt(this.value);
+        selColor = hueToHex(selHue);
+        colorInput.value = selColor;
+        refreshIconGrid();
+        refreshTrigger();
+    });
+
+    sliderWrap.appendChild(hueSlider);
+
+    // ── assemble popout ──
+    popout.appendChild(label('ICON'));
+    popout.appendChild(iconGrid);
+    popout.appendChild(label('COLOUR'));
+    popout.appendChild(sliderWrap);
+
+    /* ── open / close logic ── */
+    const POPOUT_W = 300, POPOUT_H = 320, GAP = 8, MARGIN = 12;
+
+    function openPopout() {
+        const r = trigger.getBoundingClientRect();
+
+        // Default: below-left aligned to trigger
+        let top  = r.bottom + GAP;
+        let left = r.left;
+
+        // Clamp right edge
+        if (left + POPOUT_W > window.innerWidth - MARGIN) {
+            left = window.innerWidth - POPOUT_W - MARGIN;
+        }
+        // Clamp left edge
+        if (left < MARGIN) left = MARGIN;
+
+        // Flip above if it goes off the bottom
+        if (top + POPOUT_H > window.innerHeight - MARGIN) {
+            top = r.top - POPOUT_H - GAP;
+        }
+
+        popout.style.top  = top  + 'px';
+        popout.style.left = left + 'px';
+        popout.style.display = 'block';
+    }
+    function closePopout() {
+        popout.style.display = 'none';
+    }
+
+    // Close on scroll so fixed position doesn't drift
+    window.addEventListener('scroll', closePopout, { passive: true });
+
+    trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        popout.style.display === 'block' ? closePopout() : openPopout();
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!popout.contains(e.target) && e.target !== trigger) closePopout();
+    });
+
+    /* ── inject into DOM ── */
+    refreshIconGrid();
+    refreshTrigger();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mb-3';
+    wrapper.appendChild(trigger);
+    wrapper.appendChild(triggerLabel);
+
+    // Attach popout to body so no ancestor clips or offsets it
+    document.body.appendChild(popout);
+
+    iconSelect.style.display = 'none';
+    iconSelect.parentNode.insertBefore(wrapper, iconSelect);
+});
+</script>
+{% endblock %}

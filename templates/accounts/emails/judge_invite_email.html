@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Judge Invitation - YouJudge</title></head>
+<body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#084B83;padding:30px;text-align:center;border-radius:10px 10px 0 0;">
+        <h1 style="color:#fff;margin:0;">&#127942; YouJudge</h1>
+    </div>
+    <div style="background:#f9fafb;padding:30px;border-radius:0 0 10px 10px;">
+        <h2 style="color:#084B83;">You've Been Invited to Judge!</h2>
+        <p>Hi <strong>{{ user.get_short_name }}</strong>,</p>
+        <p><strong>{{ inviter_name }}</strong> has invited you to be a judge for the competition:</p>
+        <div style="background:#fff;border-left:4px solid #084B83;padding:15px 20px;margin:20px 0;border-radius:4px;">
+            <strong style="font-size:1.1rem;">{{ competition_title }}</strong>
+        </div>
+        <p>Log in to your YouJudge dashboard to accept or decline the invitation.</p>
+        <div style="text-align:center;margin:30px 0;">
+            <a href="{{ dashboard_url }}" style="background:#084B83;color:#fff;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;">
+                View Invitation
+            </a>
+        </div>
+        <p style="color:#838E83;font-size:0.875rem;">If you don't want to judge this competition, you can simply decline from your dashboard.</p>
+        <hr style="border:none;border-top:1px solid #ddd;margin:30px 0;">
+        <p style="color:#666;font-size:14px;text-align:center;">The YouJudge Team</p>
+    </div>
+    <div style="text-align:center;margin-top:20px;color:#999;font-size:12px;">
+        <p>&copy; 2025 YouJudge. All rights reserved.</p>
+    </div>
+</body>
+</html>

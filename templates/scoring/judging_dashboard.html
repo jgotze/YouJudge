@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Judging Dashboard - YouJudge{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Competitions I Judge</h2>
+        <p style="color:#838E83;margin:0;">Your active judging assignments</p>
+    </div>
+</div>
+
+{% if progress_data %}
+<div class="row g-4">
+    {% for item in progress_data %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 card-hover p-3">
+            <div style="height:6px;background:#084B83;border-radius:4px;margin-bottom:1rem;width:{{ item.progress.completion_percentage }}%;"></div>
+            <h5 class="fw-bold mb-1">{{ item.assignment.competition.title }}</h5>
+            <p style="color:#838E83;font-size:0.875rem;margin-bottom:1rem;">{{ item.assignment.competition.description|truncatewords:15 }}</p>
+
+            <div class="mb-3">
+                <div class="d-flex justify-content-between" style="font-size:0.8rem;color:#838E83;margin-bottom:4px;">
+                    <span>Progress</span>
+                    <span>{{ item.progress.scored_entries }}/{{ item.progress.total_entries }} entries</span>
+                </div>
+                <div class="progress" style="height:6px;">
+                    <div class="progress-bar" style="width:{{ item.progress.completion_percentage }}%;"></div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-auto">
+                <a href="{% url 'scoring:competition_scoring' item.assignment.competition.pk %}" class="btn btn-brand btn-sm flex-fill">
+                    <i class="bi bi-pencil-square"></i> Score Entries
+                </a>
+                <a href="{% url 'scoring:leaderboard' item.assignment.competition.pk %}" class="btn btn-outline-brand btn-sm">
+                    <i class="bi bi-bar-chart"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card p-5 text-center">
+    <i class="bi bi-star" style="font-size:4rem;color:#838E83;"></i>
+    <h5 class="fw-bold mt-3">No judging assignments</h5>
+    <p style="color:#838E83;">You haven't been assigned as a judge to any competition yet.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,433 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ competition.title }} - YouJudge{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <nav aria-label="breadcrumb" class="mb-1">
+            <ol class="breadcrumb mb-0" style="font-size:0.85rem;">
+                <li class="breadcrumb-item"><a href="{% url 'competitions:dashboard' %}" style="color:#084B83;">Dashboard</a></li>
+                <li class="breadcrumb-item active">{{ competition.title }}</li>
+            </ol>
+        </nav>
+        <h2 class="fw-bold mb-1">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;border-radius:8px;background:{{ competition.icon_color }}22;color:{{ competition.icon_color }};font-size:1.1rem;margin-right:0.4rem;vertical-align:middle;">
+                <i class="bi bi-{{ competition.icon }}"></i>
+            </span>
+            {{ competition.title }}
+        </h2>
+        {% if is_owner %}
+        <div class="dropdown d-inline-block">
+            <button type="button" class="badge border-0 dropdown-toggle
+                {% if competition.status == 'active' %}badge-active
+                {% elif competition.status == 'draft' %}badge-draft
+                {% else %}badge-closed{% endif %}"
+                data-bs-toggle="dropdown" aria-expanded="false" style="cursor:pointer;font-size:0.85em;">
+                {{ competition.get_status_display }}
+            </button>
+            <ul class="dropdown-menu shadow-sm" style="font-size:0.85rem;min-width:130px;">
+                {% if competition.status != 'draft' %}
+                <li><form method="post" action="{% url 'competitions:update_status' competition.pk %}">{% csrf_token %}<input type="hidden" name="status" value="draft"><button type="submit" class="dropdown-item"><span class="badge badge-draft">Draft</span></button></form></li>
+                {% endif %}
+                {% if competition.status != 'active' %}
+                <li><form method="post" action="{% url 'competitions:update_status' competition.pk %}">{% csrf_token %}<input type="hidden" name="status" value="active"><button type="submit" class="dropdown-item"><span class="badge badge-active">Active</span></button></form></li>
+                {% endif %}
+                {% if competition.status != 'closed' %}
+                <li><form method="post" action="{% url 'competitions:update_status' competition.pk %}">{% csrf_token %}<input type="hidden" name="status" value="closed"><button type="submit" class="dropdown-item"><span class="badge badge-closed">Closed</span></button></form></li>
+                {% endif %}
+            </ul>
+        </div>
+        {% else %}
+        <span class="badge
+            {% if competition.status == 'active' %}badge-active
+            {% elif competition.status == 'draft' %}badge-draft
+            {% else %}badge-closed{% endif %}">
+            {{ competition.get_status_display }}
+        </span>
+        {% endif %}
+    </div>
+
+    {% if is_owner %}
+    <div class="dropdown">
+        <button class="btn btn-outline-brand dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-three-dots-vertical"></i> Manage
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'competitions:edit' competition.pk %}"><i class="bi bi-pencil"></i> Edit Details</a></li>
+            <li><a class="dropdown-item" href="{% url 'competitions:update_status' competition.pk %}"><i class="bi bi-toggle-on"></i> Change Status</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="{% url 'competitions:delete' competition.pk %}"><i class="bi bi-trash"></i> Delete</a></li>
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Stats bar -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card p-3 text-center">
+            <div class="fw-bold" style="font-size:1.75rem;color:#084B83;">{{ competition.total_entries }}</div>
+            <div style="color:#838E83;font-size:0.85rem;">Entries</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card p-3 text-center">
+            <div class="fw-bold" style="font-size:1.75rem;color:#084B83;">{{ competition.total_judges }}</div>
+            <div style="color:#838E83;font-size:0.85rem;">Judges</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card p-3 text-center">
+            <div class="fw-bold" style="font-size:1.75rem;color:#084B83;">{{ criteria.count }}</div>
+            <div style="color:#838E83;font-size:0.85rem;">Criteria</div>
+        </div>
+    </div>
+</div>
+
+<!-- Description -->
+{% if competition.description %}
+<div class="card mb-4 p-3">
+    <p class="mb-0">{{ competition.description }}</p>
+    {% if competition.rules %}
+        <hr style="border-color:#e5e7eb;">
+        <p class="mb-0" style="font-size:0.875rem;color:#838E83;"><strong>Rules:</strong> {{ competition.rules }}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#entries">
+            <i class="bi bi-file-earmark"></i> Entries <span class="badge" style="background:#084B83;">{{ entries.count }}</span>
+        </a>
+    </li>
+    {% if is_owner %}
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#criteria">
+            <i class="bi bi-list-check"></i> Criteria <span class="badge" style="background:#084B83;">{{ criteria.count }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#judges">
+            <i class="bi bi-people"></i> Judges <span class="badge" style="background:#084B83;">{{ judges.count }}</span>
+        </a>
+    </li>
+    {% endif %}
+    <li class="nav-item ms-auto">
+        <a href="{% url 'scoring:leaderboard' competition.pk %}" class="btn btn-brand btn-sm mt-1">
+            <i class="bi bi-bar-chart"></i> Leaderboard
+        </a>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- Entries -->
+    <div class="tab-pane fade" id="entries">
+
+        {% if is_owner %}
+        <!-- Category manager -->
+        <div class="card p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span style="font-size:0.8rem;font-weight:600;color:#838E83;">CATEGORIES (OPTIONAL)</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                {% for cat in categories %}
+                <span class="badge d-inline-flex align-items-center gap-1" style="background:#084B83;font-size:0.85rem;padding:0.4em 0.7em;">
+                    {{ cat.name }}
+                    <form method="post" action="{% url 'competitions:category_delete' cat.pk %}" class="d-inline m-0 p-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn p-0 border-0 bg-transparent text-white" style="line-height:1;font-size:0.75rem;" title="Remove">✕</button>
+                    </form>
+                </span>
+                {% empty %}
+                <span style="font-size:0.8rem;color:#aaa;">No categories yet.</span>
+                {% endfor %}
+            </div>
+            <form method="post" action="{% url 'competitions:category_create' competition.pk %}" class="d-flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="name" class="form-control form-control-sm" placeholder="New category name…" required style="max-width:240px;">
+                <button type="submit" class="btn btn-brand btn-sm">Add</button>
+            </form>
+        </div>
+
+        <!-- Category filter buttons -->
+        {% if categories %}
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-sm btn-outline-brand active" onclick="filterCategory(this, '')" data-cat="">All</button>
+            {% for cat in categories %}
+            <button class="btn btn-sm btn-outline-brand" onclick="filterCategory(this, '{{ cat.name }}')" data-cat="{{ cat.name }}">{{ cat.name }}</button>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+            <button class="btn btn-brand btn-sm" data-bs-toggle="modal" data-bs-target="#addEntryModal">
+                <i class="bi bi-plus-circle"></i> Add Entry
+            </button>
+        </div>
+        {% endif %}
+
+        {% if entries %}
+        <div class="row g-3" id="entries-grid">
+            {% for entry in entries %}
+            <div class="col-md-6 col-lg-4 entry-card" data-category="{{ entry.category.name|default:'' }}">
+                <div class="card h-100 card-hover p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <h6 class="fw-bold mb-0">{{ entry.title }}</h6>
+                        {% if entry.category %}
+                        <span class="badge ms-2" style="background:#084B83;font-size:0.75rem;white-space:nowrap;">{{ entry.category.name }}</span>
+                        {% endif %}
+                    </div>
+                    {% if entry.participant_email %}
+                    <p style="color:#838E83;font-size:0.8rem;margin-bottom:0.5rem;">{{ entry.participant_email }}</p>
+                    {% endif %}
+                    <p style="font-size:0.875rem;" class="mb-3">{{ entry.description|truncatewords:12|default:"" }}</p>
+                    <div class="d-flex gap-2 mt-auto">
+                        {% if is_judge %}
+                        <a href="{% url 'scoring:entry_scoring' entry.pk %}" class="btn btn-brand btn-sm flex-fill">
+                            <i class="bi bi-pencil"></i> Score
+                        </a>
+                        {% endif %}
+                        {% if is_owner %}
+                        <a href="{% url 'competitions:entry_edit' entry.pk %}" class="btn btn-outline-brand btn-sm">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+                        <a href="{% url 'competitions:entry_delete' entry.pk %}" class="btn btn-sm" style="border:1px solid #dc2626;color:#dc2626;">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-4 text-center">
+            <i class="bi bi-file-earmark" style="font-size:3rem;color:#838E83;"></i>
+            <p class="mt-2 mb-0" style="color:#838E83;">No entries yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Judges -->
+    {% if is_owner %}
+    <div class="tab-pane fade" id="judges">
+
+        {% if judges or pending_invites %}
+        <div class="card mb-3">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Judge</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Invited</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for judge in judges %}
+                        <tr>
+                            <td class="fw-bold">{{ judge.judge.get_full_name }}</td>
+                            <td style="color:#838E83;">{{ judge.judge.email }}</td>
+                            <td>
+                                <span class="badge
+                                    {% if judge.status == 'accepted' %}badge-active
+                                    {% elif judge.status == 'invited' %}bg-warning text-dark
+                                    {% else %}badge-closed{% endif %}">
+                                    {{ judge.get_status_display }}
+                                </span>
+                            </td>
+                            <td style="color:#838E83;font-size:0.875rem;">{{ judge.invited_at|date:"M d, Y" }}</td>
+                            <td>
+                                <a href="{% url 'competitions:judge_remove' judge.pk %}" class="btn btn-sm" style="border:1px solid #dc2626;color:#dc2626;">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% for pending in pending_invites %}
+                        <tr style="opacity:0.75;">
+                            <td style="color:#838E83;font-style:italic;">No account yet</td>
+                            <td style="color:#838E83;">{{ pending.email }}</td>
+                            <td>
+                                <span class="badge bg-secondary">Awaiting Signup</span>
+                            </td>
+                            <td style="color:#838E83;font-size:0.875rem;">{{ pending.invited_at|date:"M d, Y" }}</td>
+                            <td></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="card p-4 text-center mb-3">
+            <i class="bi bi-people" style="font-size:3rem;color:#838E83;"></i>
+            <p class="mt-2 mb-0" style="color:#838E83;">No judges assigned yet.</p>
+        </div>
+        {% endif %}
+
+        <!-- Add myself as judge -->
+        <div class="card p-3 mb-3">
+            <form method="post" action="{% url 'competitions:judge_add_self' competition.pk %}">
+                {% csrf_token %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="addMyselfCheck"
+                           onchange="this.form.submit()"
+                           {% if owner_is_judge %}checked{% endif %}>
+                    <label class="form-check-label fw-bold" for="addMyselfCheck">
+                        Add myself as judge
+                    </label>
+                    <div style="font-size:0.78rem;color:#838E83;margin-top:0.15rem;">
+                        Adds you directly without sending an invitation.
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Inline invite form -->
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-person-plus"></i> Invite Judges</h6>
+            <form method="post" action="{% url 'competitions:judge_invite' competition.pk %}">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label mb-1" style="font-size:0.8rem;color:#838E83;font-weight:600;">EMAIL ADDRESS(ES)</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" name="judge_emails" class="form-control" placeholder="alice@example.com; bob@example.com" required>
+                        <button type="submit" class="btn btn-brand">
+                            <i class="bi bi-send"></i> Invite
+                        </button>
+                    </div>
+                    <div style="font-size:0.75rem;color:#838E83;margin-top:0.3rem;">
+                        <i class="bi bi-info-circle"></i> Separate multiple emails with semicolons.
+                    </div>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Criteria -->
+    <div class="tab-pane fade" id="criteria">
+        <div class="mb-3">
+            <button class="btn btn-brand btn-sm" data-bs-toggle="modal" data-bs-target="#addCriteriaModal">
+                <i class="bi bi-plus-circle"></i> Add Criteria
+            </button>
+        </div>
+
+        {% if criteria %}
+        <div class="row g-3">
+            {% for criterion in criteria %}
+            <div class="col-md-6">
+                <div class="card p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ criterion.title }}</h6>
+                            <p style="color:#838E83;font-size:0.875rem;margin-bottom:0.5rem;">{{ criterion.description }}</p>
+                            <span class="badge" style="background:#084B83;">Weight: {{ criterion.weight }}</span>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'competitions:criteria_edit' criterion.pk %}">Edit</a></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'competitions:criteria_delete' criterion.pk %}">Delete</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-4 text-center">
+            <i class="bi bi-list-check" style="font-size:3rem;color:#838E83;"></i>
+            <p class="mt-2 mb-0" style="color:#838E83;">No criteria defined yet.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Modals ─────────────────────────────── -->
+{% if is_owner %}
+
+<!-- Add Entry Modal -->
+<div class="modal fade" id="addEntryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-plus"></i> Add Entry</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'competitions:entry_create' competition.pk %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% crispy entry_form %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Criteria Modal -->
+<div class="modal fade" id="addCriteriaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-list-check"></i> Add Criteria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'competitions:criteria_create' competition.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% crispy criteria_form %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<script>
+function resizeCompImg(h) {
+    var el = document.getElementById('comp-img-container');
+    if (el) {
+        el.style.height = h + 'px';
+        localStorage.setItem('compImgH_{{ competition.pk }}', h);
+    }
+}
+
+(function () {
+    var saved = localStorage.getItem('compImgH_{{ competition.pk }}');
+    if (saved) {
+        var el = document.getElementById('comp-img-container');
+        if (el) el.style.height = saved + 'px';
+    }
+})();
+
+function filterCategory(btn, cat) {
+    document.querySelectorAll('[onclick^="filterCategory"]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.entry-card').forEach(card => {
+        card.style.display = (!cat || card.dataset.category === cat) ? '' : 'none';
+    });
+}
+
+// Activate the correct tab from URL hash — runs after Bootstrap is ready
+document.addEventListener('DOMContentLoaded', function () {
+    const hash = window.location.hash;
+    const target = hash ? document.querySelector('.nav-tabs a[href="' + hash + '"]') : null;
+    const activate = target || document.querySelector('.nav-tabs a[data-bs-toggle="tab"]');
+    if (activate) bootstrap.Tab.getOrCreateInstance(activate).show();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Login - YouJudge{% endblock %}
+
+{% block content %}
+<div style="min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; background: #f4f6f9;">
+    <div style="width: 100%; max-width: 420px; padding: 1rem;">
+        <div class="card p-4">
+            <div class="text-center mb-4">
+                <div style="width:64px;height:64px;background:#084B83;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:1rem;">
+                    <i class="bi bi-person-fill" style="color:#fff;font-size:1.75rem;"></i>
+                </div>
+                <h3 class="fw-bold mb-1">Welcome Back</h3>
+                <p style="color:#838E83;">Login to your YouJudge account</p>
+            </div>
+
+            {% crispy form %}
+
+            <div class="text-center mt-3">
+                <a href="{% url 'accounts:password_reset_request' %}" style="color:#084B83;font-size:0.875rem;">Forgot Password?</a>
+            </div>
+            <hr style="border-color:#e5e7eb;">
+            <p class="text-center mb-0" style="font-size:0.875rem;color:#838E83;">
+                Don't have an account?
+                <a href="{% url 'accounts:register' %}" style="color:#084B83;font-weight:600;">Sign Up</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

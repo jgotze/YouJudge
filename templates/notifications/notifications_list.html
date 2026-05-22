@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications - YouJudge{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-bell"></i> Notifications</h2>
+        <p style="color:#838E83;margin:0;">Your recent activity</p>
+    </div>
+    {% if notifications %}
+    <a href="{% url 'notifications:mark_all_read' %}" class="btn btn-outline-brand btn-sm">
+        <i class="bi bi-check2-all"></i> Mark All Read
+    </a>
+    {% endif %}
+</div>
+
+<!-- Filter tabs -->
+<div class="d-flex gap-2 mb-3">
+    <a href="{% url 'notifications:list' %}"
+       class="btn btn-sm {% if filter_type == 'all' %}btn-brand{% else %}btn-outline-secondary{% endif %}">
+        All
+    </a>
+    <a href="{% url 'notifications:list' %}?filter=invites"
+       class="btn btn-sm {% if filter_type == 'invites' %}btn-brand{% else %}btn-outline-secondary{% endif %}">
+        <i class="bi bi-envelope-open"></i> Invites
+        {% if pending_invite_count > 0 %}
+        <span class="badge ms-1" style="background:#ef4444;">{{ pending_invite_count }}</span>
+        {% endif %}
+    </a>
+</div>
+
+{% if notifications %}
+<div class="card p-0">
+    {% for notification in notifications %}
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #f0f0f0;
+                {% if not notification.is_read %}background:#f0f5fb;{% endif %}">
+
+        <div class="d-flex justify-content-between align-items-start gap-3">
+            <div class="flex-grow-1">
+                <div class="mb-1">
+                    {% if not notification.is_read %}
+                        <span class="badge me-1" style="background:#084B83;font-size:0.65rem;">NEW</span>
+                    {% endif %}
+                    {% if notification.notification_type in 'judge_invite,judge_invited' %}
+                        <i class="bi bi-envelope-open-fill me-1" style="color:#084B83;"></i>
+                    {% elif notification.notification_type == 'judge_accepted' %}
+                        <i class="bi bi-person-check-fill me-1" style="color:#16a34a;"></i>
+                    {% elif notification.notification_type == 'competition_started' %}
+                        <i class="bi bi-play-circle-fill me-1" style="color:#f59e0b;"></i>
+                    {% else %}
+                        <i class="bi bi-bell-fill me-1" style="color:#838E83;"></i>
+                    {% endif %}
+                    <strong>{{ notification.title }}</strong>
+                </div>
+                <p class="mb-0" style="color:#838E83;font-size:0.875rem;">{{ notification.message }}</p>
+
+                {% if notification.pending_assignment %}
+                <div class="d-flex gap-2 mt-2">
+                    <form method="post" action="{% url 'competitions:judge_respond' notification.pending_assignment.pk 'accept' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-brand btn-sm">
+                            <i class="bi bi-check-lg"></i> Accept
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'competitions:judge_respond' notification.pending_assignment.pk 'decline' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm" style="border:1px solid #dc2626;color:#dc2626;">
+                            <i class="bi bi-x-lg"></i> Decline
+                        </button>
+                    </form>
+                </div>
+                {% elif notification.notification_type in 'judge_invite,judge_invited' %}
+                <p class="mb-0 mt-1" style="color:#838E83;font-size:0.8rem;font-style:italic;">
+                    Already responded
+                </p>
+                {% endif %}
+            </div>
+
+            <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0">
+                <span style="color:#838E83;font-size:0.8rem;white-space:nowrap;">{{ notification.created_at|timesince }} ago</span>
+                {% if not notification.is_read %}
+                <a href="{% url 'notifications:mark_read' notification.pk %}"
+                   class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem;padding:2px 8px;">
+                    Mark read
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="card p-5 text-center">
+    <i class="bi bi-bell-slash" style="font-size:4rem;color:#838E83;"></i>
+    <h5 class="fw-bold mt-3">
+        {% if filter_type == 'invites' %}No invitations{% else %}No notifications{% endif %}
+    </h5>
+    <p style="color:#838E83;">
+        {% if filter_type == 'invites' %}You have no pending judge invitations.{% else %}You're all caught up!{% endif %}
+    </p>
+</div>
+{% endif %}
+{% endblock %}

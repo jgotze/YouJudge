@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - YouJudge{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">My Competitions</h2>
+        <p style="color:#838E83;margin:0;">Manage and track your competitions</p>
+    </div>
+    {% if request.user.is_subscribed %}
+    <a href="{% url 'competitions:create' %}" class="btn btn-brand">
+        <i class="bi bi-plus-circle"></i> New Competition
+    </a>
+    {% endif %}
+</div>
+
+<!-- Filter bar -->
+<div class="card mb-4 p-3">
+    <div class="row g-2 align-items-center">
+        <div class="col-md-6">
+            <input type="text" id="filterInput" class="form-control" placeholder="Search competitions…" oninput="filterCards()">
+        </div>
+        <div class="col-md-3">
+            <select id="filterStatus" class="form-select" onchange="filterCards()">
+                <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="closed">Closed</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- My Competitions -->
+{% if my_competitions %}
+    <div class="row g-4" id="competitionCards">
+        {% for competition in my_competitions %}
+            <div class="col-md-6 col-lg-4 comp-card" data-title="{{ competition.title|lower }}" data-status="{{ competition.status }}">
+                <div class="card h-100 card-hover">
+                    <div style="height:140px;border-radius:10px 10px 0 0;overflow:hidden;position:relative;background:linear-gradient(135deg,{{ competition.icon_color }},{{ competition.icon_color }}cc);display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-{{ competition.icon }}" style="font-size:4.5rem;color:rgba(255,255,255,0.25);"></i>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="fw-bold mb-0">{{ competition.title }}</h5>
+                            <div class="dropdown">
+                                <button type="button" class="badge border-0 dropdown-toggle
+                                    {% if competition.status == 'active' %}badge-active
+                                    {% elif competition.status == 'draft' %}badge-draft
+                                    {% else %}badge-closed{% endif %}"
+                                    data-bs-toggle="dropdown" aria-expanded="false" style="cursor:pointer;font-size:0.8em;">
+                                    {{ competition.get_status_display }}
+                                </button>
+                                <ul class="dropdown-menu shadow-sm" style="font-size:0.85rem;min-width:130px;">
+                                    {% if competition.status != 'draft' %}
+                                    <li><form method="post" action="{% url 'competitions:update_status' competition.pk %}">{% csrf_token %}<input type="hidden" name="status" value="draft"><button type="submit" class="dropdown-item"><span class="badge badge-draft">Draft</span></button></form></li>
+                                    {% endif %}
+                                    {% if competition.status != 'active' %}
+                                    <li><form method="post" action="{% url 'competitions:update_status' competition.pk %}">{% csrf_token %}<input type="hidden" name="status" value="active"><button type="submit" class="dropdown-item"><span class="badge badge-active">Active</span></button></form></li>
+                                    {% endif %}
+                                    {% if competition.status != 'closed' %}
+                                    <li><form method="post" action="{% url 'competitions:update_status' competition.pk %}">{% csrf_token %}<input type="hidden" name="status" value="closed"><button type="submit" class="dropdown-item"><span class="badge badge-closed">Closed</span></button></form></li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                        <p style="color:#838E83;font-size:0.875rem;" class="mb-3">{{ competition.description|truncatewords:18 }}</p>
+                        <div class="d-flex justify-content-between" style="color:#838E83;font-size:0.8rem;margin-bottom:1rem;">
+                            <span><i class="bi bi-file-earmark"></i> {{ competition.total_entries }} entries</span>
+                            <span><i class="bi bi-people"></i> {{ competition.total_judges }} judges</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'competitions:detail' competition.pk %}" class="btn btn-brand btn-sm flex-fill">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                            <a href="{% url 'scoring:leaderboard' competition.pk %}" class="btn btn-outline-brand btn-sm">
+                                <i class="bi bi-bar-chart"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card p-5 text-center">
+        <i class="bi bi-trophy" style="font-size:4rem;color:#838E83;"></i>
+        <h5 class="fw-bold mt-3">No competitions yet</h5>
+        {% if request.user.is_subscribed %}
+        <p style="color:#838E83;">Create your first competition to get started.</p>
+        <div>
+            <a href="{% url 'competitions:create' %}" class="btn btn-brand">
+                <i class="bi bi-plus-circle"></i> Create Competition
+            </a>
+        </div>
+        {% else %}
+        <p style="color:#838E83;">Check your notifications for any judge invitations.</p>
+        {% endif %}
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterCards() {
+    const q = document.getElementById('filterInput').value.toLowerCase();
+    const status = document.getElementById('filterStatus').value;
+    document.querySelectorAll('.comp-card').forEach(card => {
+        const titleMatch = card.dataset.title.includes(q);
+        const statusMatch = !status || card.dataset.status === status;
+        card.style.display = (titleMatch && statusMatch) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

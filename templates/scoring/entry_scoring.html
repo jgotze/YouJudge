@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Score {{ entry.title }} - YouJudge{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb" style="font-size:0.85rem;">
+        <li class="breadcrumb-item"><a href="{% url 'scoring:dashboard' %}" style="color:#084B83;">Judging Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'scoring:competition_scoring' competition.pk %}" style="color:#084B83;">{{ competition.title }}</a></li>
+        <li class="breadcrumb-item active">{{ entry.title }}</li>
+    </ol>
+</nav>
+
+<!-- Entry info -->
+<div class="card mb-4 p-4">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h4 class="fw-bold mb-1">{{ entry.title }}</h4>
+            <p style="color:#838E83;" class="mb-1">Participant: <strong style="color:#000500;">{{ entry.participant_name }}</strong></p>
+            {% if entry.description %}
+                <p style="color:#838E83;font-size:0.875rem;">{{ entry.description }}</p>
+            {% endif %}
+        </div>
+        {% if entry.file %}
+            <a href="{{ entry.file.url }}" target="_blank" class="btn btn-outline-brand btn-sm">
+                <i class="bi bi-file-earmark"></i> View File
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scoring form -->
+<div class="card p-4">
+    <h5 class="fw-bold mb-4"><i class="bi bi-pencil-square"></i> Score Each Criteria (0–{{ competition.max_score }})</h5>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            {% if 'score_' in field.html_name %}
+            <div class="mb-4 p-3" style="background:#f8f9fa;border-radius:8px;">
+                <label class="fw-bold mb-2">{{ field.label }}</label>
+                <div class="d-flex align-items-center gap-3">
+                    <select name="{{ field.html_name }}" class="form-select" style="max-width:120px;">
+                        {% for val, label in field.field.widget.choices %}
+                            <option value="{{ val }}" {% if field.value == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <span style="color:#838E83;font-size:0.875rem;">out of {{ competition.max_score }}</span>
+                </div>
+                {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% else %}
+            <div class="mb-3">
+                <label class="form-label" style="color:#838E83;font-size:0.875rem;">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-brand">
+                <i class="bi bi-check-circle"></i> Done
+            </button>
+            <a href="{% url 'scoring:competition_scoring' competition.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

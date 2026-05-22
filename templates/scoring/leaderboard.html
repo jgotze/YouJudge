@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load scoring_tags %}
+
+{% block title %}Leaderboard - {{ competition.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb" style="font-size:0.85rem;">
+        <li class="breadcrumb-item"><a href="{% url 'competitions:dashboard' %}" style="color:#084B83;">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'competitions:detail' competition.pk %}" style="color:#084B83;">{{ competition.title }}</a></li>
+        <li class="breadcrumb-item active">Leaderboard</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-bar-chart-fill" style="color:#084B83;"></i> Leaderboard</h2>
+        <p style="color:#838E83;margin:0;">{{ competition.title }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'scoring:leaderboard_export' competition.pk %}" class="btn btn-outline-brand btn-sm">
+            <i class="bi bi-download"></i> Export CSV
+        </a>
+        <a href="{% url 'competitions:detail' competition.pk %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    {% if entries_with_scores %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width:80px;">Rank</th>
+                    <th>Entry</th>
+                    <th>Participant</th>
+                    {% for criterion in criteria %}
+                        <th class="text-center">{{ criterion.title }}<br><small style="color:#838E83;">(Avg)</small></th>
+                    {% endfor %}
+                    <th class="text-end">Total Score</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in entries_with_scores %}
+                <tr>
+                    <td>
+                        {% if data.leaderboard_entry.rank == 1 %}
+                            <span class="badge bg-warning text-dark">#1 <i class="bi bi-trophy-fill"></i></span>
+                        {% elif data.leaderboard_entry.rank == 2 %}
+                            <span class="badge bg-secondary">#2</span>
+                        {% elif data.leaderboard_entry.rank == 3 %}
+                            <span class="badge" style="background:#cd7f32;">#3</span>
+                        {% else %}
+                            <span style="color:#838E83;">#{{ data.leaderboard_entry.rank }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-bold">{{ data.entry.title }}</td>
+                    <td style="color:#838E83;">{{ data.entry.participant_name }}</td>
+                    {% for criterion in criteria %}
+                        <td class="text-center">
+                            {% with avg=data.criteria_averages|get_item:criterion.id %}
+                                {% if avg %}
+                                    <span class="badge" style="background:#084B83;">{{ avg }}</span>
+                                {% else %}
+                                    <span style="color:#838E83;">—</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    {% endfor %}
+                    <td class="text-end">
+                        <strong style="font-size:1.1rem;color:#084B83;">
+                            {{ data.leaderboard_entry.total_weighted_score|floatformat:2 }}
+                        </strong>
+                    </td>
+                    <td>
+                        <a href="{% url 'scoring:score_details' data.entry.pk %}" class="btn btn-outline-brand btn-sm">
+                            <i class="bi bi-bar-chart-steps"></i> Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-5 text-center">
+        <i class="bi bi-bar-chart" style="font-size:4rem;color:#838E83;"></i>
+        <p class="mt-3 mb-0" style="color:#838E83;">No scores submitted yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if criteria %}
+<div class="card mt-4 p-4">
+    <h6 class="fw-bold mb-3">Scoring Criteria</h6>
+    <div class="row g-3">
+        {% for criterion in criteria %}
+        <div class="col-md-6">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ criterion.title }}</strong>
+                    <p style="color:#838E83;font-size:0.8rem;margin:0;">{{ criterion.description }}</p>
+                </div>
+                <span class="badge" style="background:#084B83;">Weight: {{ criterion.weight }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+
+{% block title %}Score Entries - {{ competition.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb" style="font-size:0.85rem;">
+        <li class="breadcrumb-item"><a href="{% url 'scoring:dashboard' %}" style="color:#084B83;">Judging Dashboard</a></li>
+        <li class="breadcrumb-item active">{{ competition.title }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">{{ competition.title }}</h2>
+        <p style="color:#838E83;margin:0;" id="record-count">{{ rows|length }} record{{ rows|length|pluralize }} &mdash; your scores</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'scoring:my_scores' competition.pk %}" class="btn btn-outline-brand btn-sm">
+            <i class="bi bi-journal-check"></i> My Scores
+        </a>
+        <a href="{% url 'scoring:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+        <a href="{% url 'scoring:dashboard' %}" class="btn btn-brand btn-sm">
+            <i class="bi bi-check-circle"></i> Done
+        </a>
+    </div>
+</div>
+
+{% if not scoring_is_open %}
+<div class="alert mb-4" style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:1rem 1.25rem;">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-lock-fill" style="color:#856404;font-size:1.1rem;"></i>
+        <div>
+            {% if competition.status == 'closed' %}
+            <strong style="color:#856404;">Scoring is closed.</strong>
+            <span style="color:#856404;"> This competition has ended and scores can no longer be submitted.</span>
+            {% else %}
+            <strong style="color:#856404;">Competition is not yet open.</strong>
+            <span style="color:#856404;"> The owner has not activated this competition yet.</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if rows %}
+
+<!-- Filter bar -->
+<div class="card p-3 mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">SEARCH</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="filter-search" class="form-control" placeholder="Entry or criteria…" oninput="applyFilters()">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">ENTRY</label>
+            <select id="filter-entry" class="form-select form-select-sm" onchange="applyFilters()">
+                <option value="">All entries</option>
+                {% for entry in entries %}
+                <option value="{{ entry.title }}">{{ entry.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">CATEGORY</label>
+            <select id="filter-category" class="form-select form-select-sm" onchange="applyFilters()">
+                <option value="">All categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.name }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">CRITERIA</label>
+            <select id="filter-criteria" class="form-select form-select-sm" onchange="applyFilters()">
+                <option value="">All criteria</option>
+                {% for c in criteria %}
+                <option value="{{ c.title }}">{{ c.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
+                <i class="bi bi-x-circle"></i> Clear
+            </button>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
+<div class="card p-0">
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle mb-0" style="font-size:0.875rem;">
+            <thead style="background:#f4f6fa;">
+                <tr>
+                    <th style="min-width:160px;">Entry</th>
+                    <th style="min-width:120px;">Category</th>
+                    <th style="min-width:150px;">Criteria</th>
+                    <th class="text-center" style="min-width:100px;">Weight</th>
+                    <th class="text-center" style="min-width:160px;">Score</th>
+                </tr>
+            </thead>
+            <tbody id="score-table-body">
+                {% for row in rows %}
+                <tr data-entry="{{ row.entry.title }}"
+                    data-category="{{ row.entry.category.name|default:'' }}"
+                    data-criteria="{{ row.criteria.title }}">
+                    <td class="fw-bold">{{ row.entry.title }}</td>
+                    <td>
+                        {% if row.entry.category %}
+                            <span class="badge" style="background:#084B83;">{{ row.entry.category.name }}</span>
+                        {% else %}
+                            <span style="color:#ccc;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.criteria.title }}</td>
+                    <td class="text-center">
+                        <span class="badge" style="background:#084B83;">{{ row.criteria.weight }}</span>
+                    </td>
+                    <td class="text-center">
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <select
+                                class="form-select form-select-sm score-select"
+                                style="width:80px;"
+                                data-url="{% url 'scoring:score_criteria' row.entry.pk row.criteria.pk %}"
+                                data-key="{{ row.entry.pk }}-{{ row.criteria.pk }}"
+                                {% if not scoring_is_open %}disabled title="Scoring is not open"{% endif %}>
+                                <option value="" disabled {% if not row.score %}selected{% endif %}>—</option>
+                                {% for v in score_range %}
+                                    <option value="{{ v }}" {% if row.score and row.score.score_value == v %}selected{% endif %}>{{ v }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="score-status" id="status-{{ row.entry.pk }}-{{ row.criteria.pk }}" style="font-size:1rem;width:1.2rem;display:inline-block;"></span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div id="no-results" class="d-none p-4 text-center" style="color:#838E83;">
+            <i class="bi bi-funnel" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">No records match your filters.</p>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card p-5 text-center">
+    <i class="bi bi-file-earmark" style="font-size:4rem;color:#838E83;"></i>
+    <p class="mt-3 mb-0" style="color:#838E83;">No entries in this competition yet.</p>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    applyFilters();
+
+    const csrfToken = document.getElementById('csrf-token').value;
+
+    document.querySelectorAll('.score-select').forEach(function (select) {
+        select.addEventListener('change', function () {
+            const url = this.dataset.url;
+            const key = this.dataset.key;
+            const value = this.value;
+            const statusEl = document.getElementById('status-' + key);
+
+            statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
+
+            const formData = new FormData();
+            formData.append('score_value', value);
+            formData.append('csrfmiddlewaretoken', csrfToken);
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData,
+            })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                if (data.status === 'ok') {
+                    statusEl.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                    setTimeout(function () { statusEl.innerHTML = ''; }, 2000);
+                } else {
+                    statusEl.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+                }
+            })
+            .catch(function () {
+                statusEl.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+            });
+        });
+    });
+});
+
+function applyFilters() {
+    const search = document.getElementById('filter-search').value.toLowerCase();
+    const entryFilter = document.getElementById('filter-entry').value.toLowerCase();
+    const categoryFilter = document.getElementById('filter-category').value.toLowerCase();
+    const criteriaFilter = document.getElementById('filter-criteria').value.toLowerCase();
+
+    const rows = document.querySelectorAll('#score-table-body tr');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const entry = row.dataset.entry.toLowerCase();
+        const category = row.dataset.category.toLowerCase();
+        const criteria = row.dataset.criteria.toLowerCase();
+
+        const matchSearch = !search || entry.includes(search) || criteria.includes(search);
+        const matchEntry = !entryFilter || entry === entryFilter;
+        const matchCategory = !categoryFilter || category === categoryFilter;
+        const matchCriteria = !criteriaFilter || criteria === criteriaFilter;
+
+        const show = matchSearch && matchEntry && matchCategory && matchCriteria;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    document.getElementById('no-results').classList.toggle('d-none', visible > 0);
+    document.getElementById('record-count').textContent =
+        visible + ' record' + (visible !== 1 ? 's' : '') + ' — your scores';
+}
+
+function clearFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-entry').value = '';
+    document.getElementById('filter-category').value = '';
+    document.getElementById('filter-criteria').value = '';
+    applyFilters();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome to YouJudge{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div style="background: linear-gradient(135deg, #084B83 0%, #0a5fa3 100%); color: #fff; padding: 5rem 0;">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-3 fw-bold mb-4">Welcome to<br>YouJudge</h1>
+                <p class="lead mb-4" style="color: rgba(255,255,255,0.85);">
+                    The platform for running professional competitions — create, judge, and score with ease.
+                </p>
+                <div class="d-flex gap-3">
+                    <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg fw-bold">
+                        Get Started <i class="bi bi-arrow-right"></i>
+                    </a>
+                    <a href="{% url 'accounts:login' %}" class="btn btn-outline-light btn-lg">
+                        Login
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center d-none d-lg-block">
+                <i class="bi bi-trophy-fill" style="font-size: 14rem; opacity: 0.15;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features -->
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold">Why YouJudge?</h2>
+        <p style="color: #838E83;">Everything you need to run successful competitions</p>
+    </div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 card-hover p-4">
+                <div class="mb-3" style="color: #084B83; font-size: 2.5rem;"><i class="bi bi-people-fill"></i></div>
+                <h5 class="fw-bold">Dual Roles</h5>
+                <p style="color: #838E83;">Be a competition organiser and a judge — seamlessly switch between roles.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 card-hover p-4">
+                <div class="mb-3" style="color: #084B83; font-size: 2.5rem;"><i class="bi bi-bar-chart-fill"></i></div>
+                <h5 class="fw-bold">Smart Scoring</h5>
+                <p style="color: #838E83;">Weighted 0–10 scoring with automatic leaderboard calculations.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 card-hover p-4">
+                <div class="mb-3" style="color: #084B83; font-size: 2.5rem;"><i class="bi bi-bell-fill"></i></div>
+                <h5 class="fw-bold">Notifications</h5>
+                <p style="color: #838E83;">Real-time in-app alerts for all competition activity.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- How it works -->
+<div style="background: #f4f6f9; padding: 4rem 0;">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">How It Works</h2>
+            <p style="color: #838E83;">Three simple steps</p>
+        </div>
+        <div class="row g-4 text-center">
+            {% for step in "123" %}
+            <div class="col-md-4">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+                     style="width:70px;height:70px;background:#084B83;color:#fff;font-size:1.75rem;font-weight:700;">
+                    {{ forloop.counter }}
+                </div>
+                {% if forloop.counter == 1 %}
+                <h5 class="fw-bold">Create Competition</h5>
+                <p style="color:#838E83;">Set up your competition with criteria, judges, and entries.</p>
+                {% elif forloop.counter == 2 %}
+                <h5 class="fw-bold">Judges Score</h5>
+                <p style="color:#838E83;">Invited judges score entries on a 0–10 scale per criterion.</p>
+                {% else %}
+                <h5 class="fw-bold">View Results</h5>
+                <p style="color:#838E83;">Access real-time leaderboards and export results as CSV.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- CTA -->
+<div class="container py-5 text-center">
+    <h2 class="fw-bold mb-3">Ready to get started?</h2>
+    <p class="mb-4" style="color:#838E83;">Join YouJudge and transform how you manage competitions.</p>
+    <a href="{% url 'accounts:register' %}" class="btn btn-brand btn-lg">
+        Create Free Account <i class="bi bi-arrow-right"></i>
+    </a>
+</div>
+{% endblock %}

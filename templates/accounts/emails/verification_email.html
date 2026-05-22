@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - YouJudge</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0;">YouJudge</h1>
+    </div>
+
+    <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+        <h2 style="color: #6366f1;">Verify Your Email Address</h2>
+
+        <p>Hi <strong>{{ user.get_short_name }}</strong>,</p>
+
+        <p>Thank you for signing up for YouJudge! To complete your registration, please verify your email address by clicking the button below:</p>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ verification_link }}"
+               style="background: #6366f1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Verify Email Address
+            </a>
+        </div>
+
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="background: white; padding: 10px; border-left: 3px solid #6366f1; word-break: break-all;">
+            {{ verification_link }}
+        </p>
+
+        <p><strong>Note:</strong> This verification link will expire in 24 hours.</p>
+
+        <p>If you didn't create an account with YouJudge, you can safely ignore this email.</p>
+
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 14px; text-align: center;">
+            Thanks,<br>
+            The YouJudge Team
+        </p>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px; color: #999; font-size: 12px;">
+        <p>&copy; 2025 YouJudge. All rights reserved.</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}My Judges - YouJudge{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">My Judges</h2>
+        <p style="color:#838E83;margin:0;" id="judge-count">{{ assignments|length }} assignment{{ assignments|length|pluralize }}</p>
+    </div>
+    {% if my_competitions %}
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#inviteModal">
+        <i class="bi bi-person-plus"></i> Invite Judge
+    </button>
+    {% endif %}
+</div>
+
+<!-- Invite Judge Modal -->
+{% if my_competitions %}
+<div class="modal fade" id="inviteModal" tabindex="-1" aria-labelledby="inviteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="inviteModalLabel">
+                    <i class="bi bi-person-plus"></i> Invite a Judge
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2">
+                {% crispy invite_form %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if invite_form.errors %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        new bootstrap.Modal(document.getElementById('inviteModal')).show();
+    });
+</script>
+{% endif %}
+{% endif %}
+
+{% if assignments %}
+
+<!-- Filters -->
+<div class="card p-3 mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">SEARCH</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="filter-search" class="form-control" placeholder="Name or email…" oninput="applyFilters()">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">COMPETITION</label>
+            <select id="filter-comp" class="form-select form-select-sm" onchange="applyFilters()">
+                <option value="">All competitions</option>
+                {% for comp in my_competitions %}
+                <option value="{{ comp.title }}">{{ comp.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label mb-1" style="font-size:0.78rem;color:#838E83;font-weight:600;">STATUS</label>
+            <select id="filter-status" class="form-select form-select-sm" onchange="applyFilters()">
+                <option value="">All statuses</option>
+                <option value="invited">Invited</option>
+                <option value="accepted">Accepted</option>
+                <option value="declined">Declined</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()">
+                <i class="bi bi-x-circle"></i> Clear
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card p-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+            <thead style="background:#f4f6fa;">
+                <tr>
+                    <th>Judge</th>
+                    <th>Email</th>
+                    <th>Competition</th>
+                    <th>Status</th>
+                    <th>Invited</th>
+                    <th class="text-center">Action</th>
+                </tr>
+            </thead>
+            <tbody id="judges-table-body">
+                {% for a in assignments %}
+                <tr data-name="{{ a.judge.get_full_name|lower }}"
+                    data-email="{{ a.judge.email|lower }}"
+                    data-comp="{{ a.competition.title }}"
+                    data-status="{{ a.status }}">
+                    <td class="fw-bold">{{ a.judge.get_full_name }}</td>
+                    <td style="color:#838E83;">{{ a.judge.email }}</td>
+                    <td>
+                        <a href="{% url 'competitions:detail' a.competition.pk %}" style="color:#084B83;">
+                            {{ a.competition.title }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge
+                            {% if a.status == 'accepted' %}badge-active
+                            {% elif a.status == 'invited' %}bg-warning text-dark
+                            {% else %}badge-closed{% endif %}">
+                            {{ a.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="color:#838E83;">{{ a.invited_at|date:"M d, Y" }}</td>
+                    <td class="text-center">
+                        <a href="{% url 'competitions:judge_remove' a.pk %}" class="btn btn-sm" style="border:1px solid #dc2626;color:#dc2626;">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div id="no-results" class="d-none p-4 text-center" style="color:#838E83;">
+            <i class="bi bi-funnel" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">No judges match your filters.</p>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card p-5 text-center">
+    <i class="bi bi-people" style="font-size:4rem;color:#838E83;"></i>
+    <h5 class="fw-bold mt-3">No judges yet</h5>
+    <p style="color:#838E83;">Use the <strong>Invite Judge</strong> button above to add judges to your competitions.</p>
+</div>
+{% endif %}
+
+<script>
+function applyFilters() {
+    const search = document.getElementById('filter-search').value.toLowerCase();
+    const comp = document.getElementById('filter-comp').value;
+    const status = document.getElementById('filter-status').value;
+
+    const rows = document.querySelectorAll('#judges-table-body tr');
+    let visible = 0;
+    rows.forEach(row => {
+        const matchSearch = !search || row.dataset.name.includes(search) || row.dataset.email.includes(search);
+        const matchComp = !comp || row.dataset.comp === comp;
+        const matchStatus = !status || row.dataset.status === status;
+        const show = matchSearch && matchComp && matchStatus;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    document.getElementById('no-results').classList.toggle('d-none', visible > 0);
+    document.getElementById('judge-count').textContent =
+        visible + ' assignment' + (visible !== 1 ? 's' : '');
+}
+
+function clearFilters() {
+    document.getElementById('filter-search').value = '';
+    document.getElementById('filter-comp').value = '';
+    document.getElementById('filter-status').value = '';
+    applyFilters();
+}
+</script>
+{% endblock %}
