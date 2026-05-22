@@ -5,6 +5,14 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Sum, Avg
 from django.http import HttpResponse, JsonResponse
 import csv
+import io
+from openpyxl import Workbook
+from openpyxl.styles import (
+    Font, PatternFill, Alignment, Border, Side, numbers
+)
+from openpyxl.chart import BarChart, Reference
+from openpyxl.chart.label import DataLabelList
+from openpyxl.utils import get_column_letter
 from apps.competitions.models import Competition, JudgeAssignment, Entry, Criteria
 from .models import Score, Leaderboard, JudgeProgress
 from .forms import BulkScoreForm
@@ -12,13 +20,11 @@ from .forms import BulkScoreForm
 
 @login_required
 def judging_dashboard_view(request):
-    """Display judge's dashboard with assigned competitions."""
     assignments = JudgeAssignment.objects.filter(
         judge=request.user,
         status='accepted'
     ).select_related('competition').order_by('-invited_at')
 
-    # Get progress for each competition
     progress_data = []
     for assignment in assignments:
         progress = JudgeProgress.update_progress(request.user, assignment.competition)
@@ -35,7 +41,6 @@ def judging_dashboard_view(request):
 
 @login_required
 def competition_scoring_view(request, competition_pk):
-    """Display flat entry×criteria rows for scoring."""
     competition = get_object_or_404(Competition, pk=competition_pk)
     competition.sync_status()
 
@@ -204,19 +209,22 @@ def leaderboard_view(request, competition_pk):
     # Get leaderboard entries
     leaderboard_entries = Leaderboard.objects.filter(
         competition=competition
-    ).select_related('entry').order_by('rank')
+    ).select_related('entry', 'entry__category').order_by('rank')
 
-    # Get detailed scoring breakdown
-    entries_with_scores = []
+    criteria_qs = list(competition.criteria.all())
+
+    # Build per-entry scoring detail and group by category
+    from collections import OrderedDict
+    categories = OrderedDict()  # category_name -> list of entry dicts
+
     for leaderboard_entry in leaderboard_entries:
         entry = leaderboard_entry.entry
+        cat_name = entry.category.name if entry.category else "Uncategorised"
 
-        # Get scores by judge
         judge_scores = Score.objects.filter(entry=entry).select_related('judge', 'criteria')
 
-        # Calculate average score per criteria
         criteria_averages = {}
-        for criteria in competition.criteria.all():
+        for criteria in criteria_qs:
             scores = Score.objects.filter(entry=entry, criteria=criteria)
             if scores.exists():
                 avg = scores.aggregate(Avg('score_value'))['score_value__avg']
@@ -224,19 +232,28 @@ def leaderboard_view(request, competition_pk):
             else:
                 criteria_averages[criteria.id] = 0
 
-        entries_with_scores.append({
+        if cat_name not in categories:
+            categories[cat_name] = []
+        categories[cat_name].append({
             'leaderboard_entry': leaderboard_entry,
             'entry': entry,
             'judge_scores': judge_scores,
             'criteria_averages': criteria_averages,
         })
 
+    # Re-rank within each category
+    for cat_name, entries in categories.items():
+        entries.sort(key=lambda d: d['leaderboard_entry'].total_weighted_score, reverse=True)
+        for i, d in enumerate(entries, start=1):
+            d['cat_rank'] = i
+
     context = {
         'competition': competition,
-        'entries_with_scores': entries_with_scores,
-        'criteria': competition.criteria.all(),
+        'categories': categories,
+        'criteria': criteria_qs,
         'is_owner': is_owner,
         'is_judge': is_judge,
+        'multi_category': len(categories) > 1,
     }
     return render(request, 'scoring/leaderboard.html', context)
 
@@ -292,53 +309,238 @@ def entry_score_details_view(request, entry_pk):
 
 @login_required
 def leaderboard_export_csv_view(request, competition_pk):
-    """Export leaderboard as CSV."""
+    from django.utils import timezone
+    import re
+
     competition = get_object_or_404(Competition, pk=competition_pk)
 
-    # Check permissions
     if not (competition.created_by == request.user or competition.can_user_judge(request.user)):
         raise PermissionDenied("You don't have permission to export this leaderboard.")
 
-    # Update leaderboard
     Leaderboard.update_leaderboard(competition)
 
-    # Create CSV response
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="{competition.title}_leaderboard.csv"'
+    safe_title = re.sub(r'[^\w\s-]', '', competition.title).strip().replace(' ', '_')
+    export_date = timezone.now().strftime('%Y-%m-%d')
+    filename = f"{safe_title}_leaderboard_{export_date}.xlsx"
 
-    writer = csv.writer(response)
+    criteria_list = list(competition.criteria.all())
+    judges_count = competition.judge_assignments.filter(status='accepted').count()
 
-    # Header
-    header = ['Rank', 'Entry Title', 'Participant', 'Total Score']
-    for criteria in competition.criteria.all():
-        header.append(f'{criteria.title} (Avg)')
-    writer.writerow(header)
+    leaderboard_entries = list(
+        Leaderboard.objects.filter(competition=competition)
+        .select_related('entry', 'entry__category')
+        .order_by('rank')
+    )
 
-    # Data rows
-    leaderboard_entries = Leaderboard.objects.filter(
-        competition=competition
-    ).select_related('entry').order_by('rank')
+    # ── Colour palette ──────────────────────────────────────────────────────
+    GOLD   = "FFD700"
+    SILVER = "C0C0C0"
+    BRONZE = "CD7F32"
 
-    for leaderboard_entry in leaderboard_entries:
-        entry = leaderboard_entry.entry
-        row = [
-            leaderboard_entry.rank,
-            entry.title,
-            entry.participant_name,
-            leaderboard_entry.total_weighted_score,
+    HDR_BG    = "1F3864"   # dark navy  – main column headers
+    HDR_FG    = "FFFFFF"
+    META_BG   = "2E75B6"   # mid blue   – metadata labels
+    META_FG   = "FFFFFF"
+    CRIT_BG   = "2F5496"   # accent blue – criteria sub-headers
+    CRIT_FG   = "FFFFFF"
+    ALT_ROW   = "EBF3FB"   # light blue  – alternating rows
+    WHITE     = "FFFFFF"
+
+    thin = Side(style='thin', color="BFBFBF")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def cell_style(ws, row, col, value, bold=False, bg=None, fg="000000",
+                   align="left", wrap=False, num_fmt=None):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = Font(bold=bold, color=fg, name="Calibri", size=10)
+        if bg:
+            c.fill = PatternFill("solid", fgColor=bg)
+        c.alignment = Alignment(horizontal=align, vertical="center", wrap_text=wrap)
+        c.border = border
+        if num_fmt:
+            c.number_format = num_fmt
+        return c
+
+    # ── Workbook / sheets ────────────────────────────────────────────────────
+    wb = Workbook()
+
+    # ── Sheet 1: Leaderboard ─────────────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Leaderboard"
+    ws.freeze_panes = "A3"   # freeze first two rows
+
+    # --- Metadata rows (col A=label, col B=value) ---
+    meta = [
+        ("Competition",          competition.title),
+        ("Status",               competition.get_status_display()),
+        ("Start Date",           competition.start_date.strftime('%Y-%m-%d %H:%M')),
+        ("End Date",             competition.end_date.strftime('%Y-%m-%d %H:%M')),
+        ("Max Score / Criteria", competition.max_score),
+        ("Total Entries",        competition.entries.count()),
+        ("Total Judges",         judges_count),
+        ("Exported At",          timezone.now().strftime('%Y-%m-%d %H:%M')),
+    ]
+
+    # Title banner spanning full width
+    total_cols = 8 + len(criteria_list) * 2
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols)
+    title_cell = ws.cell(row=1, column=1, value=f"  {competition.title} – Leaderboard Export")
+    title_cell.font = Font(bold=True, color=HDR_FG, name="Calibri", size=14)
+    title_cell.fill = PatternFill("solid", fgColor=HDR_BG)
+    title_cell.alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    # Metadata block (rows 2–9)
+    for i, (label, value) in enumerate(meta, start=2):
+        cell_style(ws, i, 1, label, bold=True, bg=META_BG, fg=META_FG, align="right")
+        cell_style(ws, i, 2, value, bg=WHITE, align="left")
+        # merge value across a couple of columns for readability
+        ws.merge_cells(start_row=i, start_column=2, end_row=i, end_column=4)
+
+    meta_end_row = 1 + len(meta)
+
+    # Gap row
+    gap_row = meta_end_row + 1
+
+    # --- Column headers ---
+    header_row = gap_row + 1
+    fixed_headers = [
+        ("Rank",               "center"),
+        ("Entry Title",        "left"),
+        ("Category",           "left"),
+        ("Participant Name",   "left"),
+        ("Participant Email",  "left"),
+        ("Submitted At",       "center"),
+        ("Judges Scored",      "center"),
+        ("Total Score",        "center"),
+    ]
+    for col, (label, align) in enumerate(fixed_headers, start=1):
+        cell_style(ws, header_row, col, label, bold=True,
+                   bg=HDR_BG, fg=HDR_FG, align=align)
+
+    col = 9
+    for c in criteria_list:
+        label = f"{c.title}  (×{c.weight})"
+        # Merge two columns for the criteria group header
+        ws.merge_cells(start_row=header_row, start_column=col,
+                       end_row=header_row, end_column=col + 1)
+        cell_style(ws, header_row, col, label, bold=True,
+                   bg=CRIT_BG, fg=CRIT_FG, align="center", wrap=True)
+        col += 2
+
+    # Sub-headers for criteria
+    sub_row = header_row + 1
+    for col in range(1, 9):
+        cell_style(ws, sub_row, col, "", bg=HDR_BG)   # blank spacer
+
+    col = 9
+    for c in criteria_list:
+        cell_style(ws, sub_row, col,     f"Avg /{competition.max_score}",
+                   bold=True, bg=CRIT_BG, fg=CRIT_FG, align="center")
+        cell_style(ws, sub_row, col + 1, "# Judges",
+                   bold=True, bg=CRIT_BG, fg=CRIT_FG, align="center")
+        col += 2
+
+    ws.row_dimensions[header_row].height = 22
+    ws.row_dimensions[sub_row].height = 18
+
+    # --- Data rows ---
+    data_start = sub_row + 1
+    MEDAL = {1: GOLD, 2: SILVER, 3: BRONZE}
+
+    for idx, lb_entry in enumerate(leaderboard_entries):
+        r = data_start + idx
+        entry = lb_entry.entry
+        judges_who_scored = Score.objects.filter(entry=entry).values('judge').distinct().count()
+        row_bg = MEDAL.get(lb_entry.rank, ALT_ROW if idx % 2 == 0 else WHITE)
+
+        values = [
+            (lb_entry.rank,                                                    "center", None),
+            (entry.title,                                                      "left",   None),
+            (entry.category.name if entry.category else "—",                  "left",   None),
+            (entry.participant_name,                                           "left",   None),
+            (entry.participant_email,                                          "left",   None),
+            (entry.submitted_at.strftime('%Y-%m-%d %H:%M'),                   "center", None),
+            (judges_who_scored,                                                "center", None),
+            (round(lb_entry.total_weighted_score, 2),                         "center", "0.00"),
         ]
+        for col, (val, align, nfmt) in enumerate(values, start=1):
+            c = cell_style(ws, r, col, val, bg=row_bg, align=align, num_fmt=nfmt)
+            if lb_entry.rank in MEDAL:
+                c.font = Font(bold=True, name="Calibri", size=10,
+                              color="000000" if lb_entry.rank == 1 else "000000")
 
-        # Add average scores for each criteria
-        for criteria in competition.criteria.all():
-            scores = Score.objects.filter(entry=entry, criteria=criteria)
+        col = 9
+        for crit in criteria_list:
+            scores = Score.objects.filter(entry=entry, criteria=crit)
             if scores.exists():
                 avg = scores.aggregate(Avg('score_value'))['score_value__avg']
-                row.append(round(avg, 2) if avg else 0)
+                cell_style(ws, r, col,     round(avg, 2) if avg else 0,
+                           bg=row_bg, align="center", num_fmt="0.00")
+                cell_style(ws, r, col + 1, scores.count(),
+                           bg=row_bg, align="center")
             else:
-                row.append(0)
+                cell_style(ws, r, col,     "—", bg=row_bg, align="center")
+                cell_style(ws, r, col + 1, 0,   bg=row_bg, align="center")
+            col += 2
 
-        writer.writerow(row)
+        ws.row_dimensions[r].height = 16
 
+    data_end = data_start + len(leaderboard_entries) - 1
+
+    # --- Column widths ---
+    col_widths = [6, 32, 18, 22, 30, 17, 13, 13]
+    for i, w in enumerate(col_widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    col = 9
+    for c in criteria_list:
+        ws.column_dimensions[get_column_letter(col)].width = 14
+        ws.column_dimensions[get_column_letter(col + 1)].width = 10
+        col += 2
+
+    # ── Sheet 2: Score Chart ──────────────────────────────────────────────────
+    wc = wb.create_sheet("Score Chart")
+
+    # Write a small data table the chart will reference (top 15 entries max)
+    chart_entries = leaderboard_entries[:15]
+    wc.cell(row=1, column=1, value="Entry").font = Font(bold=True)
+    wc.cell(row=1, column=2, value="Total Score").font = Font(bold=True)
+    for i, lb in enumerate(chart_entries, start=2):
+        wc.cell(row=i, column=1, value=lb.entry.title)
+        wc.cell(row=i, column=2, value=round(lb.total_weighted_score, 2))
+
+    chart = BarChart()
+    chart.type = "bar"          # horizontal bars
+    chart.grouping = "clustered"
+    chart.title = f"{competition.title} – Top Scores"
+    chart.y_axis.title = "Entry"
+    chart.x_axis.title = "Total Weighted Score"
+    chart.style = 10
+    chart.width = 22
+    chart.height = max(10, len(chart_entries) * 0.9)
+
+    data_ref = Reference(wc, min_col=2, min_row=1,
+                         max_row=1 + len(chart_entries))
+    cats_ref = Reference(wc, min_col=1, min_row=2,
+                         max_row=1 + len(chart_entries))
+    chart.add_data(data_ref, titles_from_data=True)
+    chart.set_categories(cats_ref)
+    chart.series[0].graphicalProperties.solidFill = "2E75B6"
+
+    wc.add_chart(chart, "D2")
+    wc.column_dimensions["A"].width = 32
+    wc.column_dimensions["B"].width = 14
+
+    # ── Stream response ──────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
 
