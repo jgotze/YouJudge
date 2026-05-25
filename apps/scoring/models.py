@@ -8,8 +8,6 @@ import uuid
 
 
 class Score(SoftDeleteModel):
-    """Model representing a judge's score for an entry on a specific criterion."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     judge = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -93,8 +91,6 @@ class Score(SoftDeleteModel):
 
 
 class Leaderboard(SoftDeleteModel):
-    """Model for caching leaderboard results."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     competition = models.ForeignKey(
         'competitions.Competition',
@@ -156,8 +152,6 @@ class Leaderboard(SoftDeleteModel):
 
 
 class JudgeProgress(SoftDeleteModel):
-    """Model to track judge's progress in scoring a competition."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     judge = models.ForeignKey(
         settings.AUTH_USER_MODEL,

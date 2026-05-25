@@ -8,8 +8,6 @@ import uuid
 
 
 class Competition(SoftDeleteModel):
-    """Model representing a competition."""
-
     STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('active', 'Active'),
@@ -78,7 +76,6 @@ class Competition(SoftDeleteModel):
         default='draft'
     )
 
-    # Additional fields
     icon = models.CharField(
         _('icon'), max_length=50,
         choices=ICON_CHOICES, default='trophy-fill'
@@ -154,8 +151,6 @@ class Competition(SoftDeleteModel):
 
 
 class JudgeAssignment(SoftDeleteModel):
-    """Model representing judge assignment to a competition."""
-
     STATUS_CHOICES = [
         ('invited', 'Invited'),
         ('accepted', 'Accepted'),
@@ -215,8 +210,6 @@ class JudgeAssignment(SoftDeleteModel):
 
 
 class Criteria(SoftDeleteModel):
-    """Model representing judging criteria for a competition."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     competition = models.ForeignKey(
         Competition,
@@ -247,8 +240,6 @@ class Criteria(SoftDeleteModel):
 
 
 class Category(SoftDeleteModel):
-    """Optional category for grouping entries within a competition."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     competition = models.ForeignKey(
         Competition,
@@ -310,8 +301,6 @@ class PendingJudgeInvite(SoftDeleteModel):
 
 
 class Entry(SoftDeleteModel):
-    """Model representing an entry in a competition."""
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     competition = models.ForeignKey(
         Competition,

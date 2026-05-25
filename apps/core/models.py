@@ -28,15 +28,6 @@ class SoftDeleteManager(models.Manager):
 
 
 class SoftDeleteModel(models.Model):
-    """
-    Abstract base that soft-deletes records instead of removing them.
-
-    Use  Model.objects        — active records only (default)
-         Model.all_objects    — every record including deleted ones
-    Call instance.delete()   — soft delete (sets deleted_at)
-         instance.restore()  — undo a soft delete
-         instance.hard_delete() — permanent removal
-    """
 
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 

@@ -17,7 +17,6 @@ User = get_user_model()
 
 @login_required
 def my_judges_view(request):
-    """Display all judge assignments across the user's competitions."""
     if request.method == 'POST':
         form = GlobalJudgeInviteForm(request.user, request.POST)
         if form.is_valid():

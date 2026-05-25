@@ -2,52 +2,56 @@
 
 A Django web application for running competitions with weighted scoring, real-time leaderboards, judge invitations, and a client subscription system.
 
+**New here?** See [QUICKSTART.md](QUICKSTART.md) for the full setup guide (0 → 100).
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
 | --- | --- |
 | Backend | Django 5 + Django REST Framework |
 | Database | PostgreSQL |
-| Frontend | Bootstrap 5 |
+| Frontend | Bootstrap 5 (CDN) |
 | Task Queue | Celery + Redis |
-| Email | Gmail SMTP |
+| Email | Gmail SMTP (console backend in dev) |
 
 ---
 
-## Quick Start
+## Key Features
 
-**Prerequisites:** Python 3.10+, PostgreSQL, Redis
+### Competitions
 
-```bash
-# 1. Create and activate virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Linux / Mac
+- Create competitions with custom icon, colour, start/end dates
+- Add scoring criteria with weights (1–5)
+- Organise entries into optional categories
+- Status workflow: Draft → Active → Closed
 
-# 2. Install dependencies
-pip install -r requirements.txt
+### Judging
 
-# 3. Set up environment
-copy .env.example .env       # Windows
-cp .env.example .env         # Linux / Mac
-# Edit .env — fill in DB credentials, email app password, secret key
+- Invite judges by email — existing users or new (they receive a signup invite)
+- Judges score each entry per criterion (0 to `max_score`)
+- Real-time progress tracking per judge
 
-# 4. Create the database
-psql -U postgres -c "CREATE DATABASE youjudge_db;"
+### Leaderboard and Scoring Formula
 
-# 5. Run migrations
-python manage.py migrate
-
-# 6. Create a superuser
-python manage.py createsuperuser
-
-# 7. Start the server
-python manage.py runserver
+```text
+weighted_score  = score_value × criteria_weight
+entry_total     = SUM(weighted_score for all criteria scored by all judges)
 ```
 
-Open <http://127.0.0.1:8000>
+Results export to a styled Excel file with a bar chart on Sheet 2.
 
-> **Windows shortcut:** run `.\setup.ps1` to do steps 1–3 automatically.
+### Subscription / Paywall
+
+- New users are **judges** by default (free tier)
+- To create competitions a user must be **subscribed** (`user.is_subscribed = True`)
+- In development use `/accounts/paywall/` to activate with the mock payment
+- `SubscriptionMiddleware` enforces this on every request; judges bypass it for scoring routes
+
+### Soft Deletes
+
+All core models extend `SoftDeleteModel`. Calling `.delete()` sets `deleted_at` rather than removing the row. Use `.hard_delete()` for permanent removal.
 
 ---
 
@@ -57,24 +61,26 @@ Open <http://127.0.0.1:8000>
 YouJudge/
 ├── manage.py
 ├── requirements.txt
-├── .env.example                 ← copy to .env and fill in your values
-├── setup.ps1                    ← Windows setup script
+├── .env.example              ← copy to .env and fill in your values
+├── setup.ps1                 ← Windows one-step setup script
 │
 ├── youjudge/
 │   ├── settings.py
 │   ├── urls.py
 │   ├── celery.py
-│   ├── middleware.py            ← subscription enforcement
+│   ├── middleware.py         ← subscription paywall enforcement
 │   ├── wsgi.py
 │   └── asgi.py
 │
 ├── apps/
-│   ├── core/                   ← shared SoftDeleteModel base
-│   ├── accounts/               ← auth, profiles, paywall, subscription
-│   ├── competitions/           ← competition CRUD, judge invites, entries
-│   ├── scoring/                ← judging, scores, leaderboard
-│   └── notifications/          ← in-app + email notifications
+│   ├── core/                 ← shared SoftDeleteModel base
+│   ├── accounts/             ← auth, profiles, email verification, paywall
+│   ├── competitions/         ← competition CRUD, judge invites, entries, categories
+│   ├── scoring/              ← judging, weighted scores, leaderboard, Excel export
+│   └── notifications/        ← in-app + email notifications
 │
+├── static/                   ← your custom static files (create this directory)
+├── media/                    ← uploaded files (avatars, entry attachments)
 └── templates/
     ├── base.html
     ├── landing.html
@@ -86,55 +92,6 @@ YouJudge/
 
 ---
 
-## Key Features
-
-### Competitions
-
-- Create competitions with custom scoring criteria (weighted 1–5)
-- Add entries with files, images, or video links
-- Set competition status: draft → active → closed
-
-### Judging
-
-- Invite judges by email (existing users or new invites)
-- Judges score each entry per criterion (0–10 dropdown)
-- Progress tracking per judge
-
-### Leaderboard
-
-- Auto-calculated weighted scores
-- Live rankings updated on each score submission
-- CSV export
-
-### Scoring Formula
-
-```text
-weighted_score  = (score_value / 10) × criteria_weight
-entry_total     = SUM(weighted_score for all criteria)
-```
-
-Example:
-
-| Criteria | Weight | Score | Weighted |
-| --- | --- | --- | --- |
-| Creativity | 5 | 8 | 4.0 |
-| Technical | 3 | 10 | 3.0 |
-| Presentation | 2 | 6 | 1.2 |
-| **Total** | | | **8.2** |
-
-### Subscription / Paywall
-
-- Users are judges by default (free)
-- Becoming a **Client** unlocks creating competitions
-- Paywall is gated by `user.is_subscribed`; `SubscriptionMiddleware` enforces it on every request
-- Judges with active assignments bypass the paywall for judging routes only
-
-### Soft Deletes
-
-All core models extend `SoftDeleteModel`. Calling `.delete()` sets `deleted_at` rather than removing the row. Use `.hard_delete()` for permanent removal.
-
----
-
 ## URL Reference
 
 | URL | Description |
@@ -142,37 +99,20 @@ All core models extend `SoftDeleteModel`. Calling `.delete()` sets `deleted_at` 
 | `/` | Landing page |
 | `/accounts/register/` | Create account |
 | `/accounts/login/` | Login |
-| `/accounts/profile/` | Account settings |
-| `/accounts/paywall/` | Subscription paywall |
+| `/accounts/verify/<token>/` | Email verification link |
+| `/accounts/profile/` | Edit profile and change password |
+| `/accounts/paywall/` | Subscription upgrade page |
 | `/dashboard/` | My competitions |
-| `/dashboard/<uuid>/` | Competition detail |
-| `/dashboard/my-judges/` | All judges across competitions |
-| `/scoring/` | Judging dashboard |
-| `/scoring/competition/<uuid>/` | Score entries in a competition |
-| `/scoring/leaderboard/<uuid>/` | Competition leaderboard |
-| `/notifications/` | Notifications list |
-| `/api/docs/` | Swagger API docs |
-
----
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in these values:
-
-| Variable | Description |
-| --- | --- |
-| `SECRET_KEY` | Django secret key |
-| `DEBUG` | `True` in development, `False` in production |
-| `DB_NAME` | PostgreSQL database name |
-| `DB_USER` | PostgreSQL username |
-| `DB_PASSWORD` | PostgreSQL password |
-| `DB_HOST` | PostgreSQL host (default `localhost`) |
-| `DB_PORT` | PostgreSQL port (default `5432`) |
-| `EMAIL_HOST_USER` | Gmail address for sending emails |
-| `EMAIL_HOST_PASSWORD` | Gmail App Password (16 chars — not your account password) |
-| `DEFAULT_FROM_EMAIL` | From address shown in emails |
-| `REDIS_URL` | Redis connection URL for Celery |
-| `SITE_URL` | Base URL of the site (used in email links) |
+| `/dashboard/create/` | New competition |
+| `/dashboard/<uuid>/` | Competition detail (entries, judges, criteria) |
+| `/dashboard/my-judges/` | All judges across your competitions |
+| `/scoring/` | Judge dashboard |
+| `/scoring/competition/<uuid>/` | Score all entries in a competition |
+| `/scoring/leaderboard/<uuid>/` | Live leaderboard |
+| `/scoring/leaderboard/<uuid>/export/` | Download Excel export |
+| `/notifications/` | Notifications inbox |
+| `/api/docs/` | Swagger API documentation |
+| `/admin/` | Django admin |
 
 ---
 

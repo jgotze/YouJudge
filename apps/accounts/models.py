@@ -6,10 +6,7 @@ import uuid
 
 
 class UserManager(BaseUserManager):
-    """Custom user manager for email-based authentication."""
-
     def create_user(self, email, password=None, **extra_fields):
-        """Create and save a regular user with the given email and password."""
         if not email:
             raise ValueError(_('The Email field must be set'))
         email = self.normalize_email(email)
@@ -19,7 +16,6 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        """Create and save a superuser with the given email and password."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
@@ -34,7 +30,6 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """Custom user model with email as the unique identifier."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True)
@@ -77,17 +72,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
     def get_full_name(self):
-        """Return the first_name plus the last_name, with a space in between."""
         full_name = f'{self.first_name} {self.last_name}'.strip()
         return full_name or self.email
 
     def get_short_name(self):
-        """Return the short name for the user."""
         return self.first_name or self.email.split('@')[0]
 
 
 class EmailVerificationToken(models.Model):
-    """Token for email verification."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verification_tokens')
@@ -104,7 +96,6 @@ class EmailVerificationToken(models.Model):
         return f'Verification token for {self.user.email}'
 
     def is_valid(self):
-        """Check if the token is still valid."""
         return timezone.now() < self.expires_at and not self.user.email_verified
 
     def save(self, *args, **kwargs):
@@ -114,7 +105,6 @@ class EmailVerificationToken(models.Model):
 
 
 class PasswordResetToken(models.Model):
-    """Token for password reset."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
@@ -132,7 +122,6 @@ class PasswordResetToken(models.Model):
         return f'Password reset token for {self.user.email}'
 
     def is_valid(self):
-        """Check if the token is still valid."""
         return timezone.now() < self.expires_at and not self.used
 
     def save(self, *args, **kwargs):

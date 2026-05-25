@@ -44,6 +44,14 @@ class CompetitionForm(forms.ModelForm):
             Submit('submit', 'Save Competition', css_class='btn btn-primary')
         )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        if start_date and end_date and end_date <= start_date:
+            self.add_error('end_date', 'End date must be after the start date.')
+        return cleaned_data
+
 
 class JudgeAssignmentForm(forms.Form):
     """Form for assigning judges to a competition."""
@@ -239,7 +247,7 @@ class CompetitionStatusForm(forms.Form):
 
     status = forms.ChoiceField(
         choices=Competition.STATUS_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control'})
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
 
     def __init__(self, *args, **kwargs):

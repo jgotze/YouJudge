@@ -13,7 +13,7 @@ EXEMPT_PREFIXES = (
 
 # Paths only subscribed users can access (free judges are blocked here)
 SUBSCRIPTION_ONLY_PATHS = (
-    '/dashboard/competitions/create/',
+    '/dashboard/create/',
 )
 
 

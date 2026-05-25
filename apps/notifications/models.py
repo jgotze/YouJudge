@@ -6,8 +6,6 @@ import uuid
 
 
 class Notification(SoftDeleteModel):
-    """Model representing user notifications."""
-
     NOTIFICATION_TYPES = [
         ('judge_invite', 'Judge Invitation'),
         ('judge_invited', 'Judge Invitation'),
